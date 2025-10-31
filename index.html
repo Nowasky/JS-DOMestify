@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>JS-DOMestify</title>
+<style>
+:root{--bg:#e9eef3;--text:#14171a;--muted:#5b636b;--panel:#fff;--border:#cfd6dc;--accent:#2563eb;--accent-hover:#1d4ed8;--btn:#1f2937;--btn-hover:#111827;--warn:#b45309;--warn-hover:#92400e;--ring:rgba(37,99,235,.2);--radius:4px}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--text)}
+body{font:14px/1.5 "Courier New",Courier,"Lucida Console","Consolas",monospace;}
+.title{padding:24px 16px 12px;text-align:center}
+.title h1{margin:0 0 6px;font-size:40px}
+.title p{margin:0;font-size:16px;opacity:.9}
+.editor{width:100%;max-width:1700px;margin:0 auto 24px;padding:0 16px;display:grid;grid-template-columns:1fr 1fr;gap:16px;height:calc(100vh - 150px)}
+.pane{display:flex;flex-direction:column;min-height:0;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:12px}
+.pane-title{text-align:center;font-weight:800;color:#0f172a;padding:4px 8px 8px}
+.pane-body{flex:1 1 auto;min-height:0;display:flex}
+textarea{width:100%;height:100%;resize:none;border:1px solid var(--border);border-radius:var(--radius);outline:none;padding:12px 14px;background:#fafafa;color:#111;font-family:"Courier New",Courier,"Lucida Console","Consolas",monospace;transition:box-shadow .15s,border-color .15s,background .15s}
+textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--ring);background:#fff}
+textarea[readonly]{background:#f5f5f5}
+.pane-footer{margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.left-footer{justify-content:flex-end;gap:10px}
+.actions{display:flex;gap:8px}
+.status{display:flex;align-items:center;gap:8px;color:#374151;font-weight:700}
+.bytes{margin-left:auto;font-size:12px;font-weight:700;color:#374151}
+.btn{appearance:none;border:1px solid transparent;border-radius:var(--radius);cursor:pointer;padding:9px 16px;font-weight:700;color:#fff;background:var(--accent);transition:background .15s,opacity .15s,border-color .15s;font-family:"Courier New",Courier,"Lucida Console","Consolas",monospace}
+.btn:hover{background:var(--accent-hover)}
+.btn.secondary{background:var(--btn)}
+.btn.secondary:hover{background:var(--btn-hover)}
+.btn.warn{background:var(--warn)}
+.btn.warn:hover{background:var(--warn-hover)}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+.check{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-weight:700;background:none;border:none;padding:0;border-radius:0;user-select:none}
+.check input{width:16px;height:16px;accent-color:var(--accent)}
+.spinner{width:16px;height:16px;border-radius:9999px;border:2px solid #d1d5db;border-top-color:var(--accent);animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error{margin-top:8px;padding:10px 12px;border-radius:var(--radius);background:#fef2f2;color:#7f1d1d;border:1px solid #fecaca;font-weight:700}
+.hidden{display:none!important}
+details.rawwrap{display:flex;flex-direction:column;margin-top:10px}
+details.rawwrap[open]{flex-direction:column-reverse}
+details.rawwrap>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-weight:800;color:#0f172a;list-style:none}
+details.rawwrap>summary .summary-left{display:flex;align-items:center;gap:8px}
+details.rawwrap>summary .arrow{display:inline-block;transition:transform .15s}
+details.rawwrap[open]>summary .arrow{transform:rotate(-90deg)}
+details.rawwrap>summary .status-inline{display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;font-weight:700}
+details.rawwrap>summary .status-inline .spinner{width:14px;height:14px;border-width:2px}
+details.rawwrap textarea{height:160px;margin-top:8px}
+details.rawwrap>summary,details.rawwrap>summary *{user-select:none}
+section.pane:has(#bestOut)>#rawDetails{order:2}
+section.pane:has(#bestOut)>.pane-footer{order:3}
+section.pane:has(#bestOut)>.pane-body{order:0}
+section.pane .pane-footer{flex-wrap:nowrap}
+section.pane .actions{display:flex;gap:8px;flex:0 0 auto;white-space:nowrap}
+section.pane .actions .btn{white-space:nowrap}
+section.pane .bytes{margin-left:auto;flex:1 1 auto;min-width:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+section.pane .status{flex:0 0 auto}
+@media (max-width:980px){
+  .editor{grid-template-columns:1fr;height:auto}
+  textarea{height:auto}
+  #input,#bestOut{min-height:clamp(260px,38dvh,520px)}
+  details.rawwrap textarea{min-height:clamp(160px,28dvh,420px)}
+  .pane{padding:12px}
+  .pane-footer{flex-wrap:wrap;gap:8px}
+  .bytes{margin-left:0;order:2;width:100%;text-align:left;white-space:normal;overflow:visible}
+}
+@media (prefers-reduced-motion:reduce){.spinner{animation:none}}
+#copyRaw{display:none}
+#rawDetails[open]~.pane-footer #copyRaw{display:inline-block}
+.settings{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.settings .field{display:flex;gap:6px;align-items:center}
+.settings input[type=text],.settings select{padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;min-width:240px;font-family:"Courier New",Courier,"Lucida Console","Consolas",monospace}
+#settingsDetails .field{align-items:center}
+#settingsDetails .field .check{margin-top:6px}
+.hint{position:relative;display:inline-flex;align-items:center;gap:4px;cursor:help}
+.hint .qmark{display:inline-block;width:16px;height:16px;line-height:16px;border-radius:50%;background:#e5e7eb;color:#111;font-weight:700;font-size:12px;text-align:center;transition:background .15s}
+.hint:hover .qmark{background:var(--accent);color:#fff}
+.boxed{display:inline-block;border:1px solid #444;padding:.1em .3em;margin:0 .1em;border-radius:3px;background:#fafafa}
+</style>
+</head>
+<body>
+  <div class="title">
+    <h1>JS-DOMestify</h1>
+    <p>Encode JavaScript code into a browser-runnable payload that uses only <span class="boxed">ASCII letters</span> and the symbols <span class="boxed">+</span><span class="boxed">,</span><span class="boxed">.</span><span class="boxed">=</span></p>
+  </div>
+
+  <div class="editor">
+    <section class="pane">
+      <div class="pane-title">Input</div>
+      <div class="pane-body">
+        <textarea id="input" spellcheck="false" aria-label="Input JavaScript payload" autofocus></textarea>
+      </div>
+
+      <details id="settingsDetails" class="rawwrap">
+        <summary>
+          <div class="summary-left">
+            <span class="arrow">▶</span>
+            <span class="summary-label">Settings</span>
+          </div>
+        </summary>
+
+        <div class="settings" style="margin-top:8px">
+          <div class="field" style="flex-wrap:wrap">
+            <label for="targetEl"><strong>Insert vector into <span class="boxed">document</span>.</strong></label>
+            <input id="targetEl" type="text" list="targetSuggest" value="head" spellcheck="false" onfocus="this.dataset.value=this.value;this.value='';" onblur="if(this.value==='')this.value=this.dataset.value;" />
+            <datalist id="targetSuggest">
+              <option value="head"></option>
+              <option value="body"></option>
+            </datalist>
+            <label class="check" style="margin-left:10px">
+              <input type="checkbox" id="preserveBox" aria-describedby="preserveHint">
+              <span id="preserveText" class="hint" title="By default the XSS vector replaces the element's innerHTML. Enable this to restore it afterward.">Restore content <span class="qmark">?</span></span>
+            </label>
+          </div>
+
+          <div class="field">
+            <label for="emptySuffix">
+              <strong id="emptyLabel">Empty string property: <span class="boxed">document.head</span>.</strong>
+            </label>
+            <input id="emptySuffix" type="text" list="emptySuggest" value="id" spellcheck="false" onfocus="this.dataset.value=this.value;this.value='';" onblur="if(this.value==='')this.value=this.dataset.value;" />
+            <datalist id="emptySuggest">
+              <option value="id"></option>
+              <option value="dir"></option>
+            </datalist>
+          </div>
+        </div>
+      </details>
+
+      <div class="pane-footer left-footer">
+        <label class="check"><input type="checkbox" id="auto" checked>Auto-convert</label>
+        <button id="run" class="btn">Convert</button>
+      </div>
+    </section>
+
+    <section class="pane">
+      <div class="pane-title">Output</div>
+      <div class="pane-body">
+        <textarea id="bestOut" readonly spellcheck="false" aria-label="Optimized output"></textarea>
+      </div>
+
+      <details id="rawDetails" class="rawwrap">
+        <summary>
+          <div class="summary-left"><span class="arrow">▶</span><span class="summary-label">Show raw output</span></div>
+          <div class="status-inline" aria-live="polite" aria-atomic="true">
+            <div id="spinner" class="spinner hidden"></div>
+            <div id="statusMsg" class="hidden">Shrinking in progress</div>
+          </div>
+        </summary>
+        <textarea id="rawOut" readonly spellcheck="false" aria-label="Raw output"></textarea>
+        <div class="pane-footer" style="justify-content:flex-start;margin-top:8px;"></div>
+      </details>
+
+      <div class="pane-footer">
+        <div class="actions">
+          <button id="copyBest" class="btn secondary">Copy output</button>
+          <button id="copyRaw" class="btn secondary">Copy raw</button>
+          <button id="pauseResumeBtn" class="btn warn hidden">Pause shrinking</button>
+        </div>
+        <div class="bytes">
+          <span id="bytesRaw">Raw: —</span> ·
+          <span id="bytesOpt">Optimized: —</span> ·
+          <span id="helpersCount">Helpers: —</span>
+        </div>
+      </div>
+
+      <div id="errorBox" class="error hidden" role="alert" aria-live="polite"></div>
+    </section>
+  </div>
+
+<script>
+const identCache=new Map();
+function isBadIdent(n){if(identCache.has(n))return identCache.get(n);let b=false;try{new Function("var "+n+"=1;")}catch{b=true}identCache.set(n,b);return b}
+const encBytes=s=>new TextEncoder().encode(s).length;
+const letters=[...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'];
+const AMP='AMP';
+const isDigitTok=t=>typeof t==='string'&&t.length===2&&t.charCodeAt(0)===68&&t.charCodeAt(1)>=48&&t.charCodeAt(1)<=57;
+const digitToSym=d=>`D${d}`;
+function toEntityTokens(str){const out=[];for(const ch of str){const code=ch.codePointAt(0).toString();out.push(AMP);for(let i=0;i<code.length;i++)out.push(digitToSym(code[i]))}return out}
+const __tokId=new Map();let __nextTokId=1;function tokId(tok){let id=__tokId.get(tok);if(id)return id;id=__nextTokId++;__tokId.set(tok,id);return id}
+function hasRepeatOfLengthK_streaming(segs,k){if(k<=0)return true;const BASE=16777619>>>0;let pow=1>>>0;for(let i=0;i<k;i++)pow=Math.imul(pow,BASE)>>>0;const buckets=new Map(),push=(h,o)=>{const a=buckets.get(h);if(!a){buckets.set(h,[o]);return}if(a.length<3)a.push(o)};for(let sIdx=0;sIdx<segs.length;sIdx++){const a=segs[sIdx];if(a.length<k)continue;let h=0>>>0;for(let i=0;i<k;i++)h=(Math.imul(h,BASE)+tokId(a[i]))>>>0;let sf=tokId(a[0]),sl=tokId(a[k-1]),sig=(sf^(sl*0x9e3779b1))>>>0;push(h,{s:sIdx,i:0,sig});for(let i=1;i+k<=a.length;i++){const left=tokId(a[i-1]),right=tokId(a[i+k-1]);h=(Math.imul(h,BASE)-Math.imul(left,pow))>>>0;h=(h+0x100000000)>>>0;h=(h+right)>>>0;sf=tokId(a[i]);sl=right;const sig2=(sf^(sl*0x9e3779b1))>>>0;const arr=buckets.get(h);if(arr){for(let p=0;p<arr.length;p++){const pr=arr[p];if(pr.sig===sig2&&(pr.s!==sIdx||Math.abs(pr.i-i)>=k))return true}if(arr.length<3)arr.push({s:sIdx,i,sig:sig2})}else buckets.set(h,[{s:sIdx,i,sig:sig2}])}}return false}
+function longestRepeatedWindow_streaming(streams){const maxSeg=Math.max(streams[0].length,streams[1].length,streams[2].length);let lo=1,hi=maxSeg,ans=0;while(lo<=hi){const k=(lo+hi)>>1;if(hasRepeatOfLengthK_streaming(streams,k)){ans=k;lo=k+1}else hi=k-1}return ans}
+function computeKmaxFromRawStreams(streams){return Math.max(4,longestRepeatedWindow_streaming(streams))}
+function kmpBuild(p){const lps=new Int32Array(p.length);for(let i=1,len=0;i<p.length;){if(p[i]===p[len])lps[i++]=++len;else if(len)len=lps[len-1];else lps[i++]=0}return lps}
+function replaceAllKMP(toks,pat,name){if(!pat.length)return toks.slice();const L=pat.length,lps=kmpBuild(pat);const out=[];let i=0,j=0,lastEmit=0;while(i<toks.length){if(toks[i]===pat[j]){i++;j++;if(j===L){const start=i-L;for(let k=lastEmit;k<start;k++)out.push(toks[k]);out.push(name);lastEmit=i;j=0}}else if(j)j=lps[j-1];else i++}for(let k=lastEmit;k<toks.length;k++)out.push(toks[k]);return out}
+const rlenFromLen=L=>(L?((L<<1)-1):0);
+function safePrefix(pat,stringy){if(pat[0]===AMP)return true;let seen=false,lead=0;for(let i=0;i<pat.length;i++){const t=pat[i];if(t===AMP||stringy.has(t)){seen=true;break}if(isDigitTok(t)){if(++lead>=2)return false}else return false}return seen}
+function occurrencesSafeAllDigit(pat,seqs,stringy){if(!pat.length)return false;for(let k=0;k<pat.length;k++)if(!isDigitTok(pat[k]))return false;for(let s=0;s<seqs.length;s++){const a=seqs[s];for(let i=0;i+pat.length<=a.length;i++){let ok=true;for(let j=0;j<pat.length;j++)if(a[i+j]!==pat[j]){ok=false;break}if(!ok)continue;if(i===0)return false;const prev=a[i-1];if(!(prev===AMP||stringy.has(prev)))return false}}return true}
+function findNonOverlap(toks,pat){const occ=[];if(!pat.length||toks.length<pat.length)return occ;const first=pat[0];let i=0;outer:while(i<=toks.length-pat.length){while(i<=toks.length-pat.length&&toks[i]!==first)i++;if(i>toks.length-pat.length)break;for(let j=1;j<pat.length;j++)if(toks[i+j]!==pat[j]){i++;continue outer}occ.push(i);i+=pat.length}return occ}
+function topoSortDecls(decls){const names=Object.keys(decls),deps={};for(const n of names){const set=new Set();deps[n]=set;for(const t of decls[n])if(t!==n&&decls[t])set.add(t)}const vis=new Set(),tmp=new Set(),out=[];function dfs(n){if(vis.has(n))return;if(tmp.has(n))throw new Error('Cyclic');tmp.add(n);for(const d of deps[n])dfs(d);tmp.delete(n);vis.add(n);out.push(n)}for(const n of names)dfs(n);return out}
+function crossBoundaryOccurrences(phA,phB,pat){if(!pat.length)return 0;const L=pat.length,cut=phA.length,joined=phA.concat(phB);let c=0;const first=pat[0];for(let i=Math.max(0,cut-L+1);i<=cut-1&&i+L<=joined.length;){if(joined[i]!==first){i++;continue}let ok=true;for(let j=1;j<L;j++)if(joined[i+j]!==pat[j]){ok=false;break}if(ok&&i<cut&&i+L>cut)c++;i++}return c}
+function rand(){const c=(globalThis.crypto&&globalThis.crypto.getRandomValues)||(typeof crypto!=='undefined'&&crypto.getRandomValues);if(c){const u32=new Uint32Array(1);(globalThis.crypto||crypto).getRandomValues(u32);return(u32[0]>>>0)/2**32}return Math.random()}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));const t=a[i];a[i]=a[j];a[j]=t}return a}
+function* namesOfLen(L){const N=letters.length,idx=Array(L).fill(0);while(true){let s='';for(let i=0;i<L;i++)s+=letters[idx[i]];yield s;let p=L-1;while(p>=0&&++idx[p]===N){idx[p]=0;p--}if(p<0)return}}
+function buildNameBuckets(need){const buckets=[];let total=0,L=1;const CUSHION=64,MAX_PER_BUCKET=200000,SAFETY_MAX_LEN=12;while(total<need){if(L>SAFETY_MAX_LEN)throw new Error('Not enough identifier candidates; reached safety max length.');const target=Math.min(need-total+CUSHION,MAX_PER_BUCKET);const bucket=[];for(const cand of namesOfLen(L)){if(!isBadIdent(cand))bucket.push(cand);if(bucket.length>=target)break}if(bucket.length){shuffle(bucket);buckets.push(bucket);total+=bucket.length}L++}return buckets}
+function assignNames({decls,streams,roleSyms,neededDigits,mxDigit}){const freq=new Map(),b=s=>freq.set(s,(freq.get(s)||0)+1),v=a=>{for(let i=0;i<a.length;i++)b(a[i])};for(let i=0;i<streams.length;i++)v(streams[i]);const keys=Object.keys(decls);for(let i=0;i<keys.length;i++)v(decls[keys[i]]);const allSyms=new Set();for(const k of freq.keys())if(typeof k==='string')allSyms.add(k);for(const r of roleSyms)allSyms.add(r);for(const d of neededDigits)if(d!==mxDigit)allSyms.add('D'+d);const roleBias={HEAD:10,AMP:7,X:5,DOC:3,Y:1,CNT:1,SAVE:0};for(const r of roleSyms)for(let k=0;k<(roleBias[r]||0);k++)b(r);if(mxDigit!=null)for(let i=0;i<mxDigit;i++)b('CNT');for(const d of neededDigits)if(d!==mxDigit)b('D'+d);const list=[...allSyms];list.sort((a,b2)=>{const fa=(freq.get(a)||0),fb=(freq.get(b2)||0);if(fa!==fb)return fb-fa;const ra=roleSyms.includes(a),rb=roleSyms.includes(b2);if(ra!==rb)return(rb?1:0)-(ra?1:0);return String(a).localeCompare(String(b2))});const need=list.length+32,buckets=buildNameBuckets(need),nameMap=new Map(),idx=buckets.map(()=>0);for(const sym of list){let L=0;while(L<buckets.length&&idx[L]>=buckets[L].length)L++;if(L===buckets.length)throw new Error('Ran out of identifiers.');nameMap.set(sym,buckets[L][idx[L]++])}return{nameMap}}
+function buildPrefix(nameMap,roles,neededDigits,mxDigit,opts){const N=roles;const tgt=opts.targetExpr;const emptySfx=opts.emptySuffix;const preserve=opts.preserve;const p=[`${N.DOC}=document`,`${N.HEAD}=${N.DOC}.${tgt}`,`${N.X}=${N.HEAD}.part`,`${N.AMP}=${N.CNT}=${N.HEAD}${emptySfx}`,`${N.HEAD}.valueOf=${N.AMP}.sub`,`${N.X}.valueOf=${N.AMP}.at`,`${N.HEAD}.part=${N.HEAD}+${N.AMP}`];if(preserve)p.push(`${N.SAVE}=${N.HEAD}.innerHTML`);p.push(`${N.Y}=${N.HEAD}.innerHTML=${N.X}+${N.AMP}`,`${N.HEAD}.part=${N.HEAD}.innerHTML`,`${N.AMP}+=${N.X}`,`${N.HEAD}.part=${N.DOC}.nodeName`,`${N.AMP}+=${N.X}`);if(neededDigits.length){let cur=0;for(let i=0;i<neededDigits.length;i++){const d=neededDigits[i];for(let k=cur;k<d;k++)p.push(`${N.CNT}++`);if(d!==mxDigit)p.push(`${nameMap.get('D'+d)}=${N.CNT}++`);cur=d+1}}return p.join(',')}
+function renderFinal(streams,decls,opts){const order=topoSortDecls(decls),[t1,t2,t3]=streams;const preserve=opts.preserve;const roleSyms=['DOC','HEAD','X','AMP','Y','CNT',...(preserve?['SAVE']:[])];const all=t1.concat(t2,t3,...Object.values(decls));const seen=new Set(),need=[];for(let i=0;i<all.length;i++){const t=all[i];if(isDigitTok(t)){const n=t.charCodeAt(1)-48;if(!seen.has(n)){seen.add(n);need.push(n)}}}need.sort((a,b)=>a-b);const mx=need.length?need[need.length-1]:null;const{nameMap}=assignNames({decls,streams,roleSyms,neededDigits:need,mxDigit:mx}),roles={DOC:nameMap.get('DOC'),HEAD:nameMap.get('HEAD'),X:nameMap.get('X'),AMP:nameMap.get('AMP'),Y:nameMap.get('Y'),CNT:nameMap.get('CNT')};if(preserve)roles.SAVE=nameMap.get('SAVE');if(mx!=null)nameMap.set('D'+mx,roles.CNT);const rn=t=>nameMap.get(t)||t,rend=a=>{if(!a.length)return'';let s=rn(a[0]);for(let i=1;i<a.length;i++)s+='+'+rn(a[i]);return s};let helpers='';for(let i=0;i<order.length;i++){if(i)helpers+=',';const n=order[i];helpers+=`${rn(n)}=${rend(decls[n])}`}const PH1=rend(t1),PH2=rend(t2),PH3=rend(t3),prefix=buildPrefix(nameMap,roles,need,mx,opts);const tail=[...(preserve?[roles.SAVE]:[]),`${roles.Y}+${roles.HEAD}.innerHTML`,PH2,PH3,roles.HEAD].filter(Boolean);return`${prefix}${helpers?','+helpers:''},${roles.HEAD}.innerHTML=${PH1},${roles.HEAD}.innerHTML=${tail.join('+')}`}
+function buildRaw(input,opts){const ph1=toEntityTokens("style/onload="),ph2=toEntityTokens(input),ph3=toEntityTokens("//"),decls={},str=renderFinal([ph1,ph2,ph3],decls,opts);return{str,bytes:encBytes(str),streams:[ph1,ph2,ph3]}}
+function optimizeStreams(streams,capL){const decls={};let nextId=0;const stringy=new Set();const longest=Math.max(streams[0].length,streams[1].length,streams[2].length),MAXL=Math.max(1,Math.min(capL,Math.floor(longest/2)||1));let helpersCount=0;const totalOcc=pat=>findNonOverlap(streams[0],pat).length+findNonOverlap(streams[1],pat).length+findNonOverlap(streams[2],pat).length,apply=(pat,name,skip=null)=>{for(let i=0;i<3;i++)streams[i]=replaceAllKMP(streams[i],pat,name);const keys=Object.keys(decls);for(let i=0;i<keys.length;i++){const k=keys[i];if(k===skip)continue;decls[k]=replaceAllKMP(decls[k],pat,name)}};while(true){let best=null;const seqs=[streams[0],streams[1],streams[2],...Object.values(decls)];for(let L=2;L<=MAXL;L++){const Lr=rlenFromLen(L);for(let si=0;si<3;si++){const s=streams[si];for(let i=0;i+L<=s.length;i++){const pat=s.slice(i,i+L);let all=true;for(let j=0;j<L;j++)if(!isDigitTok(pat[j])){all=false;break}if(all&&!occurrencesSafeAllDigit(pat,seqs,stringy))continue;if(!safePrefix(pat,stringy))continue;const occ=totalOcc(pat);if(occ<2)continue;const declCost=helpersCount<2?(Lr+2):(Lr+3),save=occ*(Lr-1)-declCost;if(save>0&&(!best||save>best.save||(save===best.save&&L>best.L)))best={pat,L,save}}}}if(!best)break;const name=`T${nextId++}`;decls[name]=best.pat.slice();stringy.add(name);helpersCount++;apply(best.pat,name,name)}const seam=which=>{const A=which===23?streams[1]:streams[0],B=which===23?streams[2]:streams[1],MAXL2=Math.max(2,Math.min(capL,Math.min(A.length,B.length))),cands=new Map(),keys=Object.keys(decls),sDecl=new Set(keys),seqs=[streams[0],streams[1],streams[2],...keys.map(k=>decls[k])];for(let L=2;L<=MAXL2;L++){const Lr=rlenFromLen(L);for(let i=Math.max(0,A.length-L+1);i<=A.length-1;i++){const pat=A.slice(i,i+L);let all=true;for(let j=0;j<L;j++)if(!isDigitTok(pat[j])){all=false;break}if(all&&!occurrencesSafeAllDigit(pat,seqs,sDecl))continue;if(!safePrefix(pat,sDecl))continue;const cross=crossBoundaryOccurrences(A,B,pat);if(!cross)continue;const occ=findNonOverlap(streams[0],pat).length+findNonOverlap(streams[1],pat).length+findNonOverlap(streams[2],pat).length+cross;if(occ<2)continue;const declCost=helpersCount<2?(Lr+2):(Lr+3),save=occ*(Lr-1)-declCost;if(save>0){const key=pat.join('\x00'),prev=cands.get(key);if(!prev||save>prev.save)cands.set(key,{pat,save})}}}if(cands.size){let best=null;for(const v of cands.values())if(!best||v.save>best.save)best=v;const name=`T${helpersCount}`;decls[name]=best.pat.slice();helpersCount++;for(let i=0;i<3;i++)streams[i]=replaceAllKMP(streams[i],best.pat,name);const k2=Object.keys(decls);for(let i=0;i<k2.length;i++){const k=k2[i];if(k!==name)decls[k]=replaceAllKMP(decls[k],best.pat,name)}}};seam(23);seam(12);(function(){const cloneD=d=>Object.fromEntries(Object.entries(d).map(([k,v])=>[k,v.slice()])),cloneS=s=>[s[0].slice(),s[1].slice(),s[2].slice()],inline=(D,S,n,pat)=>{const keys=Object.keys(D);for(let i=0;i<keys.length;i++){const k=keys[i];if(k===n)continue;D[k]=replaceAllKMP(D[k],[n],pat)}for(let i=0;i<3;i++)S[i]=replaceAllKMP(S[i],[n],pat);delete D[n]};let D=cloneD(decls),S=cloneS(streams);const ord=topoSortDecls(D),tail=ord.slice(-3);for(let i=0;i<tail.length;i++){const n=tail[i],tD=cloneD(D),tS=cloneS(S);inline(tD,tS,n,D[n].slice());const before=encBytes(renderFinal(S,D,{targetExpr:'document.head',emptySuffix:'.id',preserve:false})),after=encBytes(renderFinal(tS,tD,{targetExpr:'document.head',emptySuffix:'.id',preserve:false}));if(after<=before){D=tD;S=tS}}Object.assign(decls,D);for(let i=0;i<3;i++)streams[i]=S[i]})();return{streams,decls,order:topoSortDecls(decls)}}
+function buildOptimizedForCap(input,capL,opts){const ph1=toEntityTokens("style/onload="),ph2=toEntityTokens(input),ph3=toEntityTokens("//"),base=optimizeStreams([ph1.slice(),ph2.slice(),ph3.slice()],capL),final=renderFinal(base.streams,base.decls,opts);return{str:final,bytes:encBytes(final),helpers:Object.keys(base.decls).length}}
+const workerSrc='('+function(){const AMP='AMP';const enc=s=>new TextEncoder().encode(s).length;const identCache=new Map();function isBadIdent(n){if(identCache.has(n))return identCache.get(n);let b=false;try{new Function("var "+n+"=1;")}catch{b=true}identCache.set(n,b);return b}const letters=[...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'];const isDig=t=>typeof t==='string'&&t.length===2&&t.charCodeAt(0)===68&&t.charCodeAt(1)>=48&&t.charCodeAt(1)<=57;const rlenFromLen=L=>(L?((L<<1)-1):0);const digitToSym=d=>'D'+d;function toEntityTokens(str){const out=[];for(const ch of str){const code=ch.codePointAt(0).toString();out.push(AMP);for(let i=0;i<code.length;i++)out.push(digitToSym(code[i]))}return out}function kmpBuild(p){const lps=new Int32Array(p.length);for(let i=1,len=0;i<p.length;){if(p[i]===p[len])lps[i++]=++len;else if(len)len=lps[len-1];else lps[i++]=0}return lps}function replaceAllKMP(toks,pat,name){if(!pat.length)return toks.slice();const L=pat.length,lps=kmpBuild(pat);const out=[];let i=0,j=0,lastEmit=0;while(i<toks.length){if(toks[i]===pat[j]){i++;j++;if(j===L){const start=i-L;for(let k=lastEmit;k<start;k++)out.push(toks[k]);out.push(name);lastEmit=i;j=0}}else if(j)j=lps[j-1];else i++}for(let k=lastEmit;k<toks.length;k++)out.push(toks[k]);return out}function findNonOverlap(toks,pat){const occ=[];if(!pat.length||toks.length<pat.length)return occ;const first=pat[0];let i=0;outer:while(i<=toks.length-pat.length){while(i<=toks.length-pat.length&&toks[i]!==first)i++;if(i>toks.length-pat.length)break;for(let j=1;j<pat.length;j++){if(toks[i+j]!==pat[j]){i++;continue outer}}occ.push(i);i+=pat.length}return occ}function topo(decls){const names=Object.keys(decls),deps={};for(const n of names){const set=new Set();deps[n]=set;for(const t of decls[n])if(t!==n&&decls[t])set.add(t)}const vis=new Set(),tmp=new Set(),out=[];function dfs(n){if(vis.has(n))return;if(tmp.has(n))throw new Error('Cyclic');tmp.add(n);for(const d of deps[n])dfs(d);tmp.delete(n);vis.add(n);out.push(n)}for(const n of names)dfs(n);return out}function safePrefix(pat,stringy){if(pat[0]===AMP)return true;let seen=false,lead=0;for(let i=0;i<pat.length;i++){const t=pat[i];if(t===AMP||stringy.has(t)){seen=true;break}if(isDig(t)){if(++lead>=2)return false}else return false}return seen}function crossBoundaryOccurrences(phA,phB,pat){if(!pat.length)return 0;const L=pat.length,cut=phA.length,joined=phA.concat(phB);let c=0;const first=pat[0];for(let i=Math.max(0,cut-L+1);i<=cut-1&&i+L<=joined.length;){if(joined[i]!==first){i++;continue}let ok=true;for(let k=1;k<L;k++)if(joined[i+k]!==pat[k]){ok=false;break}if(ok&&i<cut&&i+L>cut)c++;i++}return c}function rand(){const c=(typeof globalThis!=='undefined'&&globalThis.crypto&&globalThis.crypto.getRandomValues)||(typeof crypto!=='undefined'&&crypto.getRandomValues);if(c){const u32=new Uint32Array(1);(globalThis.crypto||crypto).getRandomValues(u32);return(u32[0]>>>0)/2**32}return Math.random()}function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));const t=a[i];a[i]=a[j];a[j]=t}return a}function* namesOfLen(L){const N=letters.length,idx=Array(L).fill(0);while(true){let s='';for(let i=0;i<L;i++)s+=letters[idx[i]];yield s;let p=L-1;while(p>=0&&++idx[p]===N){idx[p]=0;p--}if(p<0)return}}function buildNameBuckets(need){const buckets=[];let total=0,L=1;const CUSHION=64,MAX_PER_BUCKET=200000,SAFETY_MAX_LEN=12;while(total<need){if(L>SAFETY_MAX_LEN)throw new Error('Not enough identifier candidates; reached safety max length.');const target=Math.min(need-total+CUSHION,MAX_PER_BUCKET);const bucket=[];for(const cand of namesOfLen(L)){if(!isBadIdent(cand))bucket.push(cand);if(bucket.length>=target)break}if(bucket.length){shuffle(bucket);buckets.push(bucket);total+=bucket.length}L++}return buckets}function assignNames({decls,streams,roleSyms,neededDigits,mxDigit}){const freq=new Map(),b=s=>freq.set(s,(freq.get(s)||0)+1),v=a=>{for(const x of a)b(x)};for(const s of streams)v(s);for(const k of Object.keys(decls))v(decls[k]);const allSyms=new Set();for(const k of freq.keys())if(typeof k==='string')allSyms.add(k);for(const r of roleSyms)allSyms.add(r);for(const d of neededDigits)if(d!==mxDigit)allSyms.add('D'+d);const roleBias={HEAD:10,AMP:7,X:5,DOC:3,Y:1,CNT:1,SAVE:0};for(const r of roleSyms)for(let k=0;k<(roleBias[r]||0);k++)b(r);if(mxDigit!=null)for(let i=0;i<mxDigit;i++)b('CNT');for(const d of neededDigits)if(d!==mxDigit)b('D'+d);const list=[...allSyms];list.sort((a,b2)=>{const fa=(freq.get(a)||0),fb=(freq.get(b2)||0);if(fa!==fb)return fb-fa;const ra=roleSyms.includes(a),rb=roleSyms.includes(b2);if(ra!==rb)return(rb?1:0)-(ra?1:0);return String(a).localeCompare(String(b2))});const need=list.length+32,buckets=buildNameBuckets(need),nameMap=new Map(),idx=buckets.map(()=>0);for(const sym of list){let L=0;while(L<buckets.length&&idx[L]>=buckets[L].length)L++;if(L===buckets.length)throw new Error('Ran out of identifiers.');nameMap.set(sym,buckets[L][idx[L]++])}return{nameMap}}function buildPrefix(nameMap,roles,need,mx,opt){const N=roles,t=opt.targetExpr,e=opt.emptySuffix,preserve=opt.preserve;const p=[N.DOC+'=document',N.HEAD+'='+N.DOC+"."+t,N.X+'='+N.HEAD+'.part',N.AMP+'='+N.CNT+'='+N.HEAD+e,N.HEAD+'.valueOf='+N.AMP+'.sub',N.X+'.valueOf='+N.AMP+'.at',N.HEAD+'.part='+N.HEAD+'+'+N.AMP];if(preserve)p.push(N.SAVE+'='+N.HEAD+'.innerHTML');p.push(N.Y+'='+N.HEAD+'.innerHTML='+N.X+'+'+N.AMP,N.HEAD+'.part='+N.HEAD+'.innerHTML',N.AMP+'+='+N.X,N.HEAD+'.part='+N.DOC+'.nodeName',N.AMP+'+='+N.X);if(need.length){let cur=0;for(const d of need){for(let k=cur;k<d;k++)p.push(N.CNT+'++');if(d!==mx)p.push(nameMap.get('D'+d)+'='+N.CNT+'++');cur=d+1}}return p.join(',')}function renderFinal(streams,decls,opt){const order=topo(decls);const[t1,t2,t3]=streams,preserve=opt.preserve;const roleSyms=['DOC','HEAD','X','AMP','Y','CNT',...(preserve?['SAVE']:[])];const all=t1.concat(t2,t3);for(const k of Object.keys(decls))Array.prototype.push.apply(all,decls[k]);const seen=new Set(),need=[];for(const t of all){if(isDig(t)){const n=t.charCodeAt(1)-48;if(!seen.has(n)){seen.add(n);need.push(n)}}}need.sort((a,b)=>a-b);const mx=need.length?need[need.length-1]:null;const nameMap=assignNames({decls,streams,roleSyms,neededDigits:need,mxDigit:mx}).nameMap;const roles={DOC:nameMap.get('DOC'),HEAD:nameMap.get('HEAD'),X:nameMap.get('X'),AMP:nameMap.get('AMP'),Y:nameMap.get('Y'),CNT:nameMap.get('CNT')};if(preserve)roles.SAVE=nameMap.get('SAVE');if(mx!=null)nameMap.set('D'+mx,roles.CNT);const rn=t=>nameMap.get(t)||t;const rend=a=>{if(!a.length)return'';let s=rn(a[0]);for(let i=1;i<a.length;i++)s+='+'+rn(a[i]);return s};let helper='';for(const n of order){if(helper)helper+=',';helper+=rn(n)+'='+rend(decls[n])}const p=buildPrefix(nameMap,roles,need,mx,opt);const PH1=rend(t1),PH2=rend(t2),PH3=rend(t3);const tail=[...(preserve?[roles.SAVE]:[]),roles.Y+'+'+roles.HEAD+'.innerHTML',PH2,PH3,roles.HEAD].filter(Boolean);return p+(helper?','+helper:'')+','+roles.HEAD+'.innerHTML='+PH1+','+roles.HEAD+'.innerHTML='+tail.join('+')}function optimizeStreams(streams,cap){const decls={};const stringy=new Set();const longest=Math.max(streams[0].length,streams[1].length,streams[2].length);const MAXL=Math.max(1,Math.min(cap,Math.floor(longest/2)||1));let helpersCount=0;function totalOcc(pat){return findNonOverlap(streams[0],pat).length+findNonOverlap(streams[1],pat).length+findNonOverlap(streams[2],pat).length}while(true){let best=null;const seqs=[streams[0],streams[1],streams[2],...Object.values(decls)];for(let L=2;L<=MAXL;L++){const Lr=rlenFromLen(L);for(let si=0;si<3;si++){const s=streams[si];for(let i=0;i+L<=s.length;i++){const pat=s.slice(i,i+L);let all=true;for(let j=0;j<L;j++)if(!isDig(pat[j])){all=false;break}if(all&&!safePrefix(pat,stringy))continue;const occ=totalOcc(pat);if(occ<2)continue;const declCost=helpersCount<2?(Lr+2):(Lr+3);const save=occ*(Lr-1)-declCost;if(save>0&&(!best||save>best.save||(save===best.save&&L>best.L)))best={pat,L,save}}}}if(!best)break;const name='T'+Object.keys(decls).length;decls[name]=best.pat.slice();stringy.add(name);helpersCount++;for(let i=0;i<3;i++)streams[i]=replaceAllKMP(streams[i],best.pat,name);const keys=Object.keys(decls);for(const k of keys){if(k!==name)decls[k]=replaceAllKMP(decls[k],best.pat,name)}}const seam=which=>{const A=which===23?streams[1]:streams[0],B=which===23?streams[2]:streams[1];const MAXL2=Math.max(2,Math.min(cap,Math.min(A.length,B.length)));const candidates=new Map();const keys=Object.keys(decls),sDecl=new Set(keys);for(let L=2;L<=MAXL2;L++){const Lr=rlenFromLen(L);for(let i=Math.max(0,A.length-L+1);i<=A.length-1;i++){const pat=A.slice(i,i+L);let all=true;for(let j=0;j<L;j++)if(!isDig(pat[j])){all=false;break}if(!safePrefix(pat,sDecl))continue;const x=crossBoundaryOccurrences(A,B,pat);if(!x)continue;const occ=findNonOverlap(streams[0],pat).length+findNonOverlap(streams[1],pat).length+findNonOverlap(streams[2],pat).length+x;if(occ<2)continue;const declCost=helpersCount<2?(Lr+2):(Lr+3);const save=occ*(Lr-1)-declCost;if(save>0){const key=pat.join('\x00');const prev=candidates.get(key);if(!prev||save>prev.save)candidates.set(key,{pat,save})}}}if(candidates.size){let best=null;for(const v of candidates.values())if(!best||v.save>best.save)best=v;const name='T'+Object.keys(decls).length;decls[name]=best.pat.slice();helpersCount++;for(let i=0;i<3;i++)streams[i]=replaceAllKMP(streams[i],best.pat,name);const dkeys=Object.keys(decls);for(const k of dkeys){if(k!==name)decls[k]=replaceAllKMP(decls[k],best.pat,name)}}};seam(23);seam(12);return{streams,decls}}self.onmessage=function(ev){const d=ev.data||{};if(d.type!=='sweepCaps')return;const{input,caps,runId,opts}=d;let best={bytes:Infinity,str:'',maxl:0,helpers:0};for(const cap of caps){const ph1=toEntityTokens("style/onload=");const ph2=toEntityTokens(input);const ph3=toEntityTokens("//");const base=optimizeStreams([ph1.slice(),ph2.slice(),ph3.slice()],cap);const final=renderFinal(base.streams,base.decls,opts);const bytes=enc(final);const better=bytes<best.bytes;if(better){best={bytes,str:final,maxl:cap,helpers:Object.keys(base.decls).length}}self.postMessage({kind:'progress',runId,cap,bytes,helpers:Object.keys(base.decls).length,better,rawBytes:0,bestSnapshot:better?best:null})}self.postMessage({kind:'done',runId})};}.toString()+')()';
+const workerURL=URL.createObjectURL(new Blob([workerSrc],{type:'text/javascript'}));
+let workers=[];let activeRunId=0;let paused=false,completed=false,started=false;let kmax=0;let results=[];let remainingCaps=new Set();let capsReceived=0;let bestBytesGlobal=Infinity,receivedPrefix=0;const STAB_WINDOW=10;
+let lastInputForOutput=null;let uiRevealTimer=null;const UI_REVEAL_DELAY_MS=350;
+const bestOut=document.getElementById('bestOut');
+const statusMsg=document.getElementById('statusMsg');
+const spinner=document.getElementById('spinner');
+const pauseResumeBtn=document.getElementById('pauseResumeBtn');
+const errorBox=document.getElementById('errorBox');
+const bytesRaw=document.getElementById('bytesRaw');
+const bytesOpt=document.getElementById('bytesOpt');
+const helpersCount=document.getElementById('helpersCount');
+const rawOut=document.getElementById('rawOut');
+const copyRaw=document.getElementById('copyRaw');
+const targetElInput=document.getElementById('targetEl');
+const emptySuffixInput=document.getElementById('emptySuffix');
+const preserveBox=document.getElementById('preserveBox');
+const emptyLabel=document.getElementById('emptyLabel');
+function show(el){el.classList.remove('hidden')}
+function hide(el){el.classList.add('hidden')}
+function showError(msg){errorBox.textContent=msg;show(errorBox)}
+function clearError(){errorBox.textContent='';hide(errorBox)}
+function showStatus(msg,{spinning=false,showMsg=true}={}){if(showMsg){show(statusMsg);statusMsg.textContent=msg}else hide(statusMsg);if(spinning)show(spinner);else hide(spinner)}
+function updateBytesDisplay(v){bytesOpt.textContent='Optimized: '+(v==null?'—':String(v)+' bytes')}
+function updateRawDisplay(v){bytesRaw.textContent='Raw: '+(v==null?'—':String(v)+' bytes')}
+function updateHelpersDisplay(n){helpersCount.textContent='Helpers: '+(n==null?'—':String(n))}
+function killActiveWorkers(){for(const w of workers){try{w.onmessage=null;w.onerror=null;w.terminate()}catch{}}workers=[]}
+function hideActiveControls(){hide(pauseResumeBtn);showStatus('',{showMsg:false,spinning:false})}
+function resetUI(){bestOut.value='';rawOut.value='';updateBytesDisplay(null);updateRawDisplay(null);updateHelpersDisplay(null);hideActiveControls();clearError()}
+function resetState(){paused=false;completed=false;started=false;kmax=0;results=[];remainingCaps=new Set();capsReceived=0;bestBytesGlobal=Infinity;receivedPrefix=0;if(uiRevealTimer){clearTimeout(uiRevealTimer);uiRevealTimer=null}}
+function tightenReceivedPrefix(){while(receivedPrefix+1<=kmax&&results[receivedPrefix+1])receivedPrefix++}
+function checkStabilizedNow(){if(receivedPrefix<STAB_WINDOW)return false;const start=receivedPrefix-STAB_WINDOW+1;const first=results[start]?.bytes;if(first==null)return false;for(let i=start+1;i<=receivedPrefix;i++){if(!results[i]||results[i].bytes!==first)return false}return true}
+function allocateCaps(n){const capsSorted=Array.from(remainingCaps).sort((a,b)=>a-b),buckets=[];for(let i=0;i<n;i++)buckets.push([]);let i=0;for(const cap of capsSorted){buckets[i%n].push(cap);i++}return buckets.filter(b=>b.length>0)}
+function markCompletedUI(){if(uiRevealTimer){clearTimeout(uiRevealTimer);uiRevealTimer=null}showStatus('',{spinning:false,showMsg:true});hide(pauseResumeBtn)}
+function scheduleActiveUIReveal(){if(uiRevealTimer){clearTimeout(uiRevealTimer)}uiRevealTimer=setTimeout(()=>{if(completed||paused)return;show(pauseResumeBtn);pauseResumeBtn.textContent='Pause shrinking';showStatus('Shrinking in progress',{spinning:true,showMsg:true});uiRevealTimer=null},UI_REVEAL_DELAY_MS)}
+function buildCapSweep(kmax){const set=new Set();for(let k=1;k<=Math.min(64,kmax);k++)set.add(k);for(let k=72;k<=kmax;k=Math.min(kmax,Math.floor(k*1.25))+1)set.add(k);return Array.from(set).sort((a,b)=>a-b)}
+function readOptionsOrError(){const tgt=(targetElInput.value||'head').trim();const sfx=(emptySuffixInput.value||'id').trim();const opts={targetExpr:tgt,emptySuffix:'.'+sfx.replace(/^\./,''),preserve:!!preserveBox.checked};return opts}
+function updateTargetPlaceholders(){const tgt=(targetElInput.value||'head').trim()||'head';emptyLabel.innerHTML=`Empty string property: <span class="boxed">document.${tgt}</span>.`}
+function maybeAutoConvert(){if(document.getElementById('auto').checked){computeNow()}}
+function startWorkers(input,rawBytes,opts){if(completed)return;if(remainingCaps.size===0){completed=true;killActiveWorkers();markCompletedUI();return}const hw=Math.max(2,(navigator.hardwareConcurrency||2)),workerCount=Math.min(4,hw),batches=allocateCaps(workerCount);if(batches.length===0){completed=true;killActiveWorkers();markCompletedUI();return}const runId=activeRunId;let workersDone=0;started=true;scheduleActiveUIReveal();for(const caps of batches){const worker=new Worker(workerURL);workers.push(worker);worker.onerror=e=>{showError('Worker error: '+(e&&e.message?e.message:'unknown'))};worker.onmessage=ev=>{const data=ev.data||{};if(data.runId!==activeRunId)return;if(data.kind==='progress'){const{cap,bytes,bestSnapshot}=data;if(!results[cap]){results[cap]={bytes};remainingCaps.delete(cap);capsReceived++}if(bestSnapshot&&bestSnapshot.bytes<bestBytesGlobal){bestBytesGlobal=bestSnapshot.bytes;bestOut.value=bestSnapshot.str.replace(/,\s+/g,',');updateBytesDisplay(bestSnapshot.bytes);updateHelpersDisplay(bestSnapshot.helpers)}tightenReceivedPrefix();if(!paused&&!completed&&checkStabilizedNow()){completed=true;killActiveWorkers();if(!bestOut.value)showError('No result produced. Try running again.');markCompletedUI()}}if(data.kind==='done'){workersDone++;if(workersDone===batches.length&&activeRunId===runId&&!paused&&!completed){if(remainingCaps.size>0){startWorkers(input,rawBytes,opts)}else{completed=true;killActiveWorkers();markCompletedUI()}}}};worker.postMessage({type:'sweepCaps',input,rawBytes,caps,runId,opts})}}
+function computeNow(placeholder){killActiveWorkers();resetState();resetUI();try{const opts=readOptionsOrError();const inputEl=document.getElementById('input');let input=inputEl.value;if(!input&&placeholder)input=placeholder;if(!input){lastInputForOutput='';return}lastInputForOutput=input;const raw=buildRaw(input,opts);kmax=computeKmaxFromRawStreams(raw.streams);rawOut.value=(raw.str||'').replace(/,\s+/g,',');updateRawDisplay(raw.bytes);updateHelpersDisplay(0);results=new Array(kmax+1);remainingCaps=new Set(buildCapSweep(kmax));const runId=++activeRunId;startWorkers(input,raw.bytes,opts);pauseResumeBtn.onclick=()=>{if(completed||!started)return;if(!paused){paused=true;killActiveWorkers();if(uiRevealTimer){clearTimeout(uiRevealTimer);uiRevealTimer=null}show(pauseResumeBtn);showStatus('Shrinking paused',{spinning:false,showMsg:true});pauseResumeBtn.textContent='Resume shrinking'}else{paused=false;pauseResumeBtn.textContent='Pause shrinking';showStatus('Shrinking in progress',{spinning:true,showMsg:true});startWorkers(input,raw.bytes,opts)}}}catch{}}
+document.getElementById('run').addEventListener('click',computeNow);
+document.getElementById('copyBest').addEventListener('click',async e=>{const b=e.currentTarget;await navigator.clipboard.writeText(bestOut.value||'');const t=b.textContent;b.textContent='Copied!';b.disabled=true;setTimeout(()=>{b.textContent=t;b.disabled=false},700)});
+copyRaw.addEventListener('click',async e=>{const b=e.currentTarget;await navigator.clipboard.writeText(rawOut.value||'');const t=b.textContent;b.textContent='Copied!';b.disabled=true;setTimeout(()=>{b.textContent=t;b.disabled=false},700)});
+let autoTimer=null;const inputEl=document.getElementById('input');
+inputEl.addEventListener('input',()=>{if(document.getElementById('auto').checked){const current=inputEl.value;if(current===lastInputForOutput)return;clearTimeout(autoTimer);autoTimer=setTimeout(()=>{const nowVal=inputEl.value;if(nowVal===lastInputForOutput)return;computeNow()},250)}});
+document.getElementById('auto').addEventListener('change',e=>{if(e.target.checked){const current=inputEl.value;if(current!==lastInputForOutput){computeNow()}}});
+document.addEventListener('keydown',e=>{const mod=e.ctrlKey||e.metaKey;if(mod&&e.key==='Enter'){e.preventDefault();computeNow()}});
+targetElInput.addEventListener('input',()=>{updateTargetPlaceholders();maybeAutoConvert()});
+targetElInput.addEventListener('change',()=>{updateTargetPlaceholders();maybeAutoConvert()});
+emptySuffixInput.addEventListener('input',()=>{maybeAutoConvert()});
+emptySuffixInput.addEventListener('change',()=>{maybeAutoConvert()});
+preserveBox.addEventListener('change',()=>{maybeAutoConvert()});
+resetUI();
+updateTargetPlaceholders();
+computeNow(document.getElementById('input').placeholder);
+document.getElementById('input').focus();
+</script>
+</body>
+</html>
